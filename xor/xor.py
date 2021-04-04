@@ -20,6 +20,7 @@ class XOR(neatnik.Experiment):
         self.parameters.spawning_attempts = 10
         self.parameters.weight_bound = 2.0
         self.parameters.perturbation_power = 2.0
+        self.parameters.initial_activation = neatnik.RELU
         self.parameters.rejection_fraction = 0.3
         self.parameters.stagnation_threshold = 15
         self.parameters.compatibility_threshold = 3.0
@@ -75,3 +76,6 @@ experiment.populate()
 
 # Runs the `XOR` `neatnik.Experiment`.
 experiment.run()
+
+# Extract's the best performing `neatnik.Organism`.
+pickle.dump(experiment.graph(), open('organism.p', 'wb'))
