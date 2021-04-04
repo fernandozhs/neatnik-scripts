@@ -18,7 +18,7 @@ class DataSelection(neatnik.Experiment):
         # Initializes the base `neatnik.Experiment`.
         neatnik.Experiment.__init__(self)
 
-        # Sets the `XOR` `neatnik.Parameters`.
+        # Sets the `DataSelection` `neatnik.Parameters`.
         self.parameters.generational_cycles = 500
         self.parameters.population_size = 100
         self.parameters.mutation_attempts = 10
