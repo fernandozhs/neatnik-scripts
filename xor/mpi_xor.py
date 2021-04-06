@@ -113,7 +113,7 @@ else:
         organism = comm.bcast(organism, root=0)
         experiment.performance(organism)
 
-# Extract's the best performing `neatnik.Organism`.
+# Extracts the best performing `neatnik.Organism`.
 pickle.dump(experiment.graph(), open('organism.p', 'wb'))
 
 # Finalizes MPI.

@@ -78,5 +78,5 @@ experiment.populate()
 # Runs the `XOR` `neatnik.Experiment`.
 experiment.run()
 
-# Extract's the best performing `neatnik.Organism`.
+# Extracts the best performing `neatnik.Organism`.
 pickle.dump(experiment.graph(), open('organism.p', 'wb'))

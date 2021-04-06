@@ -19,7 +19,7 @@ class DataSelection(neatnik.Experiment):
         neatnik.Experiment.__init__(self)
 
         # Sets the `DataSelection` `neatnik.Parameters`.
-        self.parameters.generational_cycles = 500
+        self.parameters.generational_cycles = 100
         self.parameters.population_size = 100
         self.parameters.mutation_attempts = 10
         self.parameters.spawning_attempts = 10
@@ -77,7 +77,7 @@ class DataSelection(neatnik.Experiment):
             deviation = np.std(self.data[reactions.flatten()], axis=0)
 
             # Computes the input `organism`'s score.
-            score = np.sum(reactions)*np.sum(deviation < 0.12)
+            score = np.sum(reactions)*np.exp(-deviation).sum()
 
         else:
             # Too few `data` realizations selected by the input `organism`.
@@ -94,5 +94,5 @@ experiment.populate()
 # Runs the `DataSelection` `neatnik.Experiment`.
 experiment.run()
 
-# Extract's the best performing `neatnik.Organism`.
+# Extracts the best performing `neatnik.Organism`.
 pickle.dump(experiment.graph(), open('organism.p', 'wb'))
