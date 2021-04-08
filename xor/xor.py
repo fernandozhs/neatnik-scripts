@@ -54,7 +54,7 @@ class XOR(neatnik.Experiment):
             ]
 
     # Performance:
-    def performance(self, organism : neatnik.Organism) -> float:
+    def performance(self, organism: neatnik.Organism) -> float:
         """ Scores the performance of the input `neatnik.Organism`. """
 
         # The input `stimuli` and expected `responses` of an 'exclusive or' operator.

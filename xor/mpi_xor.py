@@ -64,7 +64,7 @@ class XOR(neatnik.Experiment):
             ]
 
     # Performance:
-    def performance(self, organism : neatnik.Organism) -> float:
+    def performance(self, organism: neatnik.Organism) -> float:
         """ Scores the performance of the input `neatnik.Organism`. """
 
         # Master process:
@@ -101,6 +101,9 @@ if rank == 0:
     experiment.populate()
     experiment.run()
 
+    # Extracts the best performing `neatnik.Organism`.
+    pickle.dump(experiment.graph(), open('organism.p', 'wb'))
+
     # Kills all worker processes.
     kill = True
     comm.bcast(kill, root=0)
@@ -112,9 +115,6 @@ else:
         # Scores the broadcasted `organism`.
         organism = comm.bcast(organism, root=0)
         experiment.performance(organism)
-
-# Extracts the best performing `neatnik.Organism`.
-pickle.dump(experiment.graph(), open('organism.p', 'wb'))
 
 # Finalizes MPI.
 MPI.Finalize()

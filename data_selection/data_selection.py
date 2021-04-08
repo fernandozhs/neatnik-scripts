@@ -19,7 +19,7 @@ class DataSelection(neatnik.Experiment):
         neatnik.Experiment.__init__(self)
 
         # Sets the `DataSelection` `neatnik.Parameters`.
-        self.parameters.generational_cycles = 100
+        self.parameters.generational_cycles = 200
         self.parameters.population_size = 100
         self.parameters.mutation_attempts = 10
         self.parameters.spawning_attempts = 10
@@ -63,25 +63,47 @@ class DataSelection(neatnik.Experiment):
             (None, None, neatnik.ENABLED, neatnik.BIASING, 0,  11, None),
             ]
 
+    # Map-maker:
+    def map(self, data: np.ndarray) -> np.ndarray:
+        """ Produces the binned map associated with the input `data`. """
+
+        # Returns the map associated with the input `data`.
+        return np.mean(data, axis=0)
+
+    # Noise estimate:
+    def noise(self, data: np.ndarray, number_splits: int) -> np.ndarray:
+        """ Estimates the noise in the map associated with the input `data`. """
+
+        # Produces sample `maps` from the input `data`.
+        maps = np.array([self.map(sample) for sample in np.array_split(data, number_splits)])
+
+        # Returns the pixel-wise estimated map noise.
+        return np.std(maps, axis=0)
+
     # Performance:
-    def performance(self, organism : neatnik.Organism) -> float:
-        """ Scores the performance of the input `neatnik.Organism`. """
+    def performance(self, organism: neatnik.Organism) -> float:
+        """ Scores the performance of the input `organism`. """
+
+        # The number of samples in which this `neatnik.Experiment`'s `data` will be split for map noise estimation.
+        number_splits = 20
 
         # Extracts the input `organism`'s reactions to this `neatnik.Experiment`'s `stimuli`.
         reactions = organism.react(self.stimuli)
-        reactions = np.array(reactions, dtype=np.bool)
+
+        # Converts the above `reactions` into a data-selecting filter.
+        filter = np.array(reactions, dtype=np.bool).flatten()
 
         # Assigns a score to the input `organism`.
-        if np.sum(reactions) > 1:
-            # Computes the standard `deviation` of the `organism`-selected `data` realizations.
-            deviation = np.std(self.data[reactions.flatten()], axis=0)
-
-            # Computes the input `organism`'s score.
-            score = np.sum(reactions)*np.exp(-deviation).sum()
-
-        else:
+        if filter.sum() < 2*number_splits:
             # Too few `data` realizations selected by the input `organism`.
             score = 0.
+
+        else:
+            # Estimates the pixel-wise `map_noise` associated with the `organism`-selected `data` realizations.
+            map_noise = self.noise(self.data[filter], number_splits)
+
+            # Computes the input `organism`'s score.
+            score = filter.sum() * np.exp(-map_noise).sum()
 
         # Returns the `organism`'s score.
         return score
