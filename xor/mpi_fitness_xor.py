@@ -9,11 +9,11 @@ comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
 
-# Defines the `XOR` `neatnik.Experiment`.
+# Defines the XOR `neatnik.Experiment`.
 class XOR(neatnik.Experiment):
     """ Drives the evolution of an 'exclusive or' operator. """
 
-    # Makes `XOR` MPI-aware.
+    # Makes XOR MPI-aware.
     global rank
     global size
 
@@ -24,8 +24,13 @@ class XOR(neatnik.Experiment):
         # Initializes the base `neatnik.Experiment`.
         neatnik.Experiment.__init__(self)
 
-        # Sets the `XOR` `neatnik.Parameters`.
-        self.parameters.generational_cycles = 100
+        # Sets the XOR `neatnik.Parameters`.
+        self.parameters.evolution_driver = neatnik.FITNESS
+        self.parameters.fitness_threshold = 0.
+        self.parameters.novelty_threshold = 0.
+        self.parameters.novelty_neighbors = 0
+        self.parameters.novelty_threshold_modifiers = [0., 0.]
+        self.parameters.generational_cycles = 150
         self.parameters.population_size = 100
         self.parameters.mutation_attempts = 10
         self.parameters.spawning_attempts = 10
@@ -50,7 +55,7 @@ class XOR(neatnik.Experiment):
         self.parameters.assimilating_activation = [1., 0.]
         self.parameters.spawning_organism = [0.4, 0.6]
 
-        # Sets the base network graph associated with the first generation of `XOR` `neatnik.Organism`s.
+        # Sets the base network graph associated with the first generation of XOR `neatnik.Organism`s.
         self.vertexes = [
             (0,  None, neatnik.ENABLED, neatnik.BIAS,   neatnik.IDENTITY, 0, 2),
             (1,  None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
@@ -63,31 +68,40 @@ class XOR(neatnik.Experiment):
             (None, None, neatnik.ENABLED, neatnik.FORWARD, 2, 3, None),
             ]
 
-    # Performance:
-    def performance(self, organism: neatnik.Organism) -> float:
-        """ Scores the performance of the input `neatnik.Organism`. """
+    # Fitness metric:
+    def fitness(self, organism: neatnik.Organism) -> float:
+        """ Scores the fitness of the input `neatnik.Organism`. """
 
         # Master process:
         if rank == 0:
-            # Broadcasts the input `organism` to the worker processes.
+            # Broadcasts the input organism to the worker processes.
             comm.bcast(kill, root=0)
             comm.bcast(organism, root=0)
 
-        # The input `stimuli` and expected `response` of an 'exclusive or' operator.
+        # The input stimuli and expected response of an 'exclusive or' operator.
         stimuli = np.array([[1, 0, 0], [1, 1, 0], [1, 0, 1], [1, 1, 1]])[rank::size]
         response = np.array([[0], [1], [1], [0]])[rank::size]
 
-        # Extracts the input `organism`'s reactions to the above stimuli.
+        # Extracts the input organism's reactions to the above stimuli.
         reactions = organism.react(stimuli)
 
-        # Computes the `organism`'s partial score by comparing its `reactions` to the expected `response`.
+        # Computes the organism's partial score by comparing its reactions to the expected response.
         score = np.shape(stimuli)[0] - np.abs(reactions - response).flatten().sum()
 
-        # Sums the input `organism`'s scores obtained by each process.
+        # Sums the input organism's scores obtained by each process.
         score = comm.reduce(score, op=MPI.SUM, root=0)
 
-        # Returns the `organism`'s score.
+        # Returns the organism's score.
         return score
+
+    # Monitoring:
+    def display(self) -> None:
+        """ Displays information about this `neatnik.Experiment` on the screen. """
+
+        # Shows the maximum fitness attained.
+        print("Max. Fitness:", "%.2f"%self.parameters.fitness_threshold, end="\r", flush=True)
+
+        return
 
 
 # Initializes a all relevant objects.
@@ -97,12 +111,12 @@ kill = False
 
 # Master process:
 if rank == 0:
-    # Populates and runs the `XOR` `neatnik.Experiment`.
-    experiment.populate()
+    # Sets up and runs the XOR `neatnik.Experiment`.
+    experiment.build()
     experiment.run()
 
     # Extracts the best performing `neatnik.Organism`.
-    pickle.dump(experiment.graph(), open('organism.p', 'wb'))
+    pickle.dump(experiment.outcome[-1], open('organism.p', 'wb'))
 
     # Kills all worker processes.
     kill = True
@@ -112,9 +126,9 @@ if rank == 0:
 else:
     # Work until told not to.
     while not(comm.bcast(kill, root=0)):
-        # Scores the broadcasted `organism`.
+        # Scores the broadcasted organism.
         organism = comm.bcast(organism, root=0)
-        experiment.performance(organism)
+        experiment.fitness(organism)
 
 # Finalizes MPI.
 MPI.Finalize()

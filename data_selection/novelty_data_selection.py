@@ -1,24 +1,32 @@
 import neatnik
 import pickle
 import numpy as np
+import numpy.ma as ma
 
 
-# Defines the `DataSelection` `neatnik.Experiment`.
+# Defines the DataSelection `neatnik.Experiment`.
 class DataSelection(neatnik.Experiment):
     """ Drives the evolution of a data-selecting artificial neural network. """
 
-    # Loads this `neatnik.Experiment`'s `data` and produces its associated `stimuli`.
+    # Loads this `neatnik.Experiment`'s data.
     data = np.load('data.npy')
-    stimuli = np.insert(data, 0, 1, axis=1)
+
+    # Produces the stimuli associated with the loaded data.
+    stimuli = np.insert(data.reshape(-1, 10), 0, 1, axis=1)
 
     # Constructor:
     def __init__(self) -> None:
-        """ Initializes this `DataSelection` `neatnik.Experiment`. """
+        """ Initializes this DataSelection `neatnik.Experiment`. """
 
         # Initializes the base `neatnik.Experiment`.
         neatnik.Experiment.__init__(self)
 
-        # Sets the `DataSelection` `neatnik.Parameters`.
+        # Sets the DataSelection `neatnik.Parameters`.
+        self.parameters.evolution_driver = neatnik.NOVELTY
+        self.parameters.fitness_threshold = 0.
+        self.parameters.novelty_threshold = 1.0
+        self.parameters.novelty_neighbors = 5
+        self.parameters.novelty_threshold_modifiers = [1.001, 0.987]
         self.parameters.generational_cycles = 200
         self.parameters.population_size = 100
         self.parameters.mutation_attempts = 10
@@ -63,58 +71,76 @@ class DataSelection(neatnik.Experiment):
             (None, None, neatnik.ENABLED, neatnik.BIASING, 0,  11, None),
             ]
 
-    # Map-maker:
-    def map(self, data: np.ndarray) -> np.ndarray:
-        """ Produces the binned map associated with the input `data`. """
+    # Cuts:
+    def mask(self, data: np.ndarray, reactions: np.ndarray) -> ma.core.MaskedArray:
+        """ Masks the input data according to the given `neatnik.Organism` reactions. """
 
-        # Returns the map associated with the input `data`.
-        return np.mean(data, axis=0)
+        # Creates a mask with shape matching that of the input data.
+        mask = np.tile(reactions, 10).reshape(data.shape)
+
+        # Returns the input data combined with its associated mask.
+        return ma.masked_array(data, mask)
+
+    # Map-maker:
+    def map(self, data: ma.core.MaskedArray) -> ma.core.MaskedArray:
+        """ Maps the input data. """
+
+        # Returns the binned map associated with the input data.
+        return data.mean(axis=0)
 
     # Noise estimate:
-    def noise(self, data: np.ndarray, number_splits: int) -> np.ndarray:
-        """ Estimates the noise in the map associated with the input `data`. """
+    def noise(self, data: ma.core.MaskedArray, number_splits: int) -> ma.core.MaskedArray:
+        """ Estimates the noise in the map associated with the input data. """
 
-        # Produces sample `maps` from the input `data`.
+        # Produces a number of split maps from the input data.
         maps = np.array([self.map(sample) for sample in np.array_split(data, number_splits)])
 
         # Returns the pixel-wise estimated map noise.
-        return np.std(maps, axis=0)
+        return maps.std(axis=0)
 
-    # Performance:
-    def performance(self, organism: neatnik.Organism) -> float:
-        """ Scores the performance of the input `organism`. """
+    # Behavior definition:
+    def behavior(self, organism: neatnik.Organism) -> np.ndarray:
+        """ Extracts the behavior of the input `neatnik.Organism`. """
 
-        # The number of samples in which this `neatnik.Experiment`'s `data` will be split for map noise estimation.
-        number_splits = 20
+        # Extracts the input organism's reactions to this `neatnik.Experiment`'s stimuli.
+        reactions = np.array(organism.react(self.stimuli), dtype=np.bool)
 
-        # Extracts the input `organism`'s reactions to this `neatnik.Experiment`'s `stimuli`.
-        reactions = organism.react(self.stimuli)
+        # Masks this `neatnik.Experiment`'s `data` according to the input reactions.
+        masked_data = self.mask(self.data, reactions)
 
-        # Converts the above `reactions` into a data-selecting filter.
-        filter = np.array(reactions, dtype=np.bool).flatten()
+        # Gets the pixel-wise noise estimate associated with the masked data.
+        noise_estimate = self.noise(masked_data, 100)
 
-        # Assigns a score to the input `organism`.
-        if filter.sum() < 2*number_splits:
-            # Too few `data` realizations selected by the input `organism`.
-            score = 0.
+        # Returns the input organism's behavior.
+        return np.array([(~reactions).sum()/len(reactions), noise_estimate.max()])
 
-        else:
-            # Estimates the pixel-wise `map_noise` associated with the `organism`-selected `data` realizations.
-            map_noise = self.noise(self.data[filter], number_splits)
+    # Fitness metric:
+    def fitness(self, organism: neatnik.Organism) -> float:
+        """ Scores the fitness of the input `neatnik.Organism`. """
 
-            # Computes the input `organism`'s score.
-            score = filter.sum() * np.exp(-map_noise).sum()
+        # Assigns a score to the input organism.
+        score = organism.behavior[0]*len(organism.behavior[0])*np.exp(-organism.behavior[1])
 
-        # Returns the `organism`'s score.
+        # Returns the organism's score.
         return score
 
+    # Monitoring:
+    def display(self) -> None:
+        """ Displays information about this `neatnik.Experiment` on the screen. """
 
-# Creates and populates a `DataSelection` `neatnik.Experiment`.
+        # Shows the maximum fitness attained.
+        print("Max. Fitness:", "%.4f"%self.parameters.fitness_threshold, end="\r", flush=True)
+
+        return
+
+
+# Sets and and runs the DataSelection `neatnik.Experiment`.
 experiment = DataSelection()
-experiment.populate()
-
-# Runs the `DataSelection` `neatnik.Experiment`.
+experiment.build()
 experiment.run()
 
+# Saves all discovered behaviors.
+np.save('behaviors', np.array(experiment.behaviors))
+
 # Extracts the best performing `neatnik.Organism`.
-pickle.dump(experiment.graph(), open('organism.p', 'wb'))
+pickle.dump(experiment.outcome[-1], open('organism.p', 'wb'))
