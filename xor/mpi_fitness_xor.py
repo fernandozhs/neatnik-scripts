@@ -19,7 +19,7 @@ class XOR(neatnik.Experiment):
 
     # Constructor:
     def __init__(self) -> None:
-        """ Initializes this `XOR` `neatnik.Experiment`. """
+        """ Initializes this XOR `neatnik.Experiment`. """
 
         # Initializes the base `neatnik.Experiment`.
         neatnik.Experiment.__init__(self)
