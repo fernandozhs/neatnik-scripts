@@ -14,6 +14,9 @@ class DataSelection(neatnik.Experiment):
     # Produces the stimuli associated with the loaded data.
     stimuli = np.insert(data.reshape(-1, 10), 0, 1, axis=1)
 
+    # The desired maximum noise level resulting from the data selection.
+    noise_target = 0.1
+
     # Constructor:
     def __init__(self) -> None:
         """ Initializes this DataSelection `neatnik.Experiment`. """
@@ -82,18 +85,18 @@ class DataSelection(neatnik.Experiment):
         return ma.masked_array(data, mask)
 
     # Map-maker:
-    def map(self, data: ma.core.MaskedArray) -> ma.core.MaskedArray:
-        """ Maps the input data. """
+    def map(self, data: ma.core.MaskedArray, number_splits: int) -> ma.core.MaskedArray:
+        """ Splits the input data and produces a map per each split. """
 
-        # Returns the binned map associated with the input data.
-        return data.mean(axis=0)
+        # Produces a map per each input data split.
+        maps = np.array([split.mean(axis=0) for split in np.array_split(data, number_splits)])
+
+        # Returns the maps associated with each input data split.
+        return maps
 
     # Noise estimate:
-    def noise(self, data: ma.core.MaskedArray, number_splits: int) -> ma.core.MaskedArray:
-        """ Estimates the noise in the map associated with the input data. """
-
-        # Produces a number of split maps from the input data.
-        maps = np.array([self.map(sample) for sample in np.array_split(data, number_splits)])
+    def noise(self, maps: ma.core.MaskedArray) -> ma.core.MaskedArray:
+        """ Estimates the pixel-wise noise in a map by computing the standard deviation of several map realizations. """
 
         # Returns the pixel-wise estimated map noise.
         return maps.std(axis=0)
@@ -105,14 +108,17 @@ class DataSelection(neatnik.Experiment):
         # Extracts the input organism's reactions to this `neatnik.Experiment`'s stimuli.
         reactions = np.array(organism.react(self.stimuli), dtype=np.bool)
 
-        # Masks this `neatnik.Experiment`'s `data` according to the input reactions.
+        # Masks this `neatnik.Experiment`'s data according to the above reactions.
         masked_data = self.mask(self.data, reactions)
 
-        # Gets the pixel-wise noise estimate associated with the masked data.
-        noise_estimate = self.noise(masked_data, 100)
+        # Splits this `neatnik.Experiment`'s data and produces a map per data split.
+        maps = self.map(masked_data, 12)
 
-        # Scores the input organism's behavior.
-        score = (~reactions).sum() * np.exp(-noise_estimate.max())
+        # Estimates the pixel-wise map noise from all map realizations.
+        noise_estimate = self.noise(maps)
+
+        # Scores the input organism's fitness.
+        score = (~reactions).sum() * np.exp(-noise_estimate.mean()/self.noise_target)
 
         # Returns the organism's score.
         return score
