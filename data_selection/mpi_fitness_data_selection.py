@@ -1,4 +1,8 @@
+# NEATnik
 import neatnik
+import parameters
+
+# Others
 import pickle
 import numpy as np
 import numpy.ma as ma
@@ -34,37 +38,6 @@ class DataSelection(neatnik.Experiment):
         # Initializes the base `neatnik.Experiment`.
         neatnik.Experiment.__init__(self)
 
-        # Sets the DataSelection `neatnik.Parameters`.
-        self.parameters.evolution_driver = neatnik.FITNESS
-        self.parameters.fitness_threshold = 0.
-        self.parameters.novelty_threshold = 0.
-        self.parameters.novelty_neighbors = 0
-        self.parameters.novelty_threshold_modifiers = [0., 0.]
-        self.parameters.generational_cycles = 200
-        self.parameters.population_size = 100
-        self.parameters.mutation_attempts = 10
-        self.parameters.spawning_attempts = 10
-        self.parameters.weight_bound = 2.0
-        self.parameters.perturbation_power = 2.0
-        self.parameters.initial_activation = neatnik.RELU
-        self.parameters.rejection_fraction = 0.3
-        self.parameters.stagnation_threshold = 15
-        self.parameters.compatibility_threshold = 3.0
-        self.parameters.compatibility_weights = [0.5, 1., 1.]
-        self.parameters.enabling_link = [0.5, 0.5]
-        self.parameters.altering_links = [0.5, 0.5]
-        self.parameters.altering_weight = [0.2, 0.7, 0.1]
-        self.parameters.adding_link = [0.5, 0.25, 0., 0.25, 0.]
-        self.parameters.enabling_node = [0.0, 0.5, 0.5]
-        self.parameters.altering_nodes = [1., 0.]
-        self.parameters.altering_activation = [1., 0., 0., 0.]
-        self.parameters.adding_node = [0.5, 0.5, 0.]
-        self.parameters.assimilating_links = [0., 1.]
-        self.parameters.assimilating_nodes = [1., 0.]
-        self.parameters.assimilating_weight = [0.5, 0.5]
-        self.parameters.assimilating_activation = [1., 0.]
-        self.parameters.spawning_organism = [0.4, 0.6]
-
         # Sets the base network graph associated with the first generation of `neatnik.Organism`s.
         self.vertexes = [
             (0,  None, neatnik.ENABLED,  neatnik.BIAS,   neatnik.IDENTITY,  0, 10),
@@ -96,7 +69,7 @@ class DataSelection(neatnik.Experiment):
 
     # Map-maker:
     def map(self, data: ma.core.MaskedArray, number_splits: int) -> ma.core.MaskedArray:
-        """ Splits the input data and produces a map per each split. """
+        """ Splits the input data and produces a map from each split. """
 
         # Produces a map per each input data split.
         maps = np.array([split.mean(axis=0) for split in np.array_split(data, number_splits)])
