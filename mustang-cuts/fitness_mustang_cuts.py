@@ -2,28 +2,38 @@
 import neatnik
 import parameters
 
+# Minkasi
+import minkasi
+
 # Others
 import pickle
 import numpy as np
 import numpy.ma as ma
-from mpi4py import MPI
+from typing import List, Dict, Union
 
 
-# Initializes MPI.
-comm = MPI.COMM_WORLD
-size = comm.Get_size()
-rank = comm.Get_rank()
+# Loads and readies a single MUSTANG data file.
+def get_data(file : string) -> Dict:
+    """ Loads and readies the input data file. """
+
+    # Loads the input data file.
+    data = minkasi.read_tod_from_fits(file)
+
+    # Downsamples and truncates the loaded data.
+    minkasi.truncate_tod(data)
+    minkasi.downsample_tod(data)
+    minkasi.truncate_tod(data)
+    data['dat_calib'] = minkasi.fit_cm_plus_poly(data['dat_calib'])
+
+    # Returns the readied data.
+    return data
 
 # Defines the DataSelection `neatnik.Experiment`.
 class DataSelection(neatnik.Experiment):
     """ Drives the evolution of a data-selecting artificial neural network. """
 
-    # Makes DataSelection MPI-aware.
-    global rank
-    global size
-
     # Loads this `neatnik.Experiment`'s data.
-    data = np.load('data.npy')
+    data = get_data('/Users/Fernando/Documents/Data/MUSTANG/moo0135/Signal_TOD-AGBT18B_215_01-s8.fits')
 
     # Produces the stimuli associated with the loaded data.
     stimuli = np.insert(data.reshape(-1, 10), 0, 1, axis=1)
@@ -61,7 +71,7 @@ class DataSelection(neatnik.Experiment):
     def mask(self, data: np.ndarray, reactions: np.ndarray) -> ma.core.MaskedArray:
         """ Masks the input data according to the given `neatnik.Organism` reactions. """
 
-        # Creates a mask with shape matching that of the data.
+        # Creates a mask with shape matching that of the input data.
         mask = np.tile(reactions, 10).reshape(data.shape)
 
         # Returns the input data combined with its associated mask.
@@ -88,45 +98,23 @@ class DataSelection(neatnik.Experiment):
     def fitness(self, organism: neatnik.Organism) -> float:
         """ Scores the fitness of the input `neatnik.Organism`. """
 
-        # Master process:
-        if rank == 0:
-            # Broadcasts the input organism to the worker processes.
-            comm.bcast(kill, root=0)
-            comm.bcast(organism, root=0)
+        # Extracts the input organism's reactions to this `neatnik.Experiment`'s stimuli.
+        reactions = np.array(organism.react(self.stimuli), dtype=np.bool)
 
-        # Extracts the input organism's reactions to the stimuli associated with this process.
-        reactions = np.array(organism.react(self.stimuli[rank::size]), dtype=np.bool)
+        # Masks this `neatnik.Experiment`'s data according to the above reactions.
+        masked_data = self.mask(self.data, reactions)
 
-        # Extracts the data associated with this process.
-        data = np.delete(self.stimuli[rank::size], 0, 1).reshape(-1, self.data.shape[1])
+        # Splits this `neatnik.Experiment`'s data and produces a map per data split.
+        maps = self.map(masked_data, 12)
 
-        # Masks and splits the data allocated to this process, producing a map per data split.
-        masked_data = self.mask(data, reactions)
-        maps = self.map(masked_data, 3)
+        # Estimates the pixel-wise map noise from all map realizations.
+        noise_estimate = self.noise(maps)
 
-        # Gathers all reactions and maps.
-        reactions = comm.gather(reactions, root=0)
-        maps = comm.gather(maps, root=0)
+        # Scores the input organism's fitness.
+        score = (~reactions).sum() * np.exp(-noise_estimate.mean()/self.noise_target)
 
-        # Master process:
-        if rank == 0:
-            # Recasts and reshapes the gathered reactions and noite estimates.
-            reactions = np.array(reactions).reshape(self.stimuli.shape[0], -1)
-            maps = np.array(maps).reshape(-1, self.data.shape[1])
-
-            # Gets the pixel-wise noise estimate associated with the gathered maps.
-            noise_estimate = self.noise(maps)
-
-            # Scores the input organism's behavior.
-            score = (~reactions).sum() * np.exp(-noise_estimate.mean()/self.noise_target)
-
-            # Returns the organism's score.
-            return score
-
-        # Worker process:
-        else:
-            # No extra work needed.
-            return 0.
+        # Returns the organism's score.
+        return score
 
     # Monitoring:
     def display(self) -> None:
@@ -137,32 +125,10 @@ class DataSelection(neatnik.Experiment):
 
         return
 
-
-# Initializes a all relevant objects.
+# Sets up and and runs the DataSelection `neatnik.Experiment`.
 experiment = DataSelection()
-organism = None
-kill = False
+experiment.build()
+experiment.run()
 
-# Master process:
-if rank == 0:
-    # Sets up and runs the XOR `neatnik.Experiment`.
-    experiment.build()
-    experiment.run()
-
-    # Extracts the best performing `neatnik.Organism`.
-    pickle.dump(experiment.outcome[-1], open('organism.p', 'wb'))
-
-    # Kills all worker processes.
-    kill = True
-    comm.bcast(kill, root=0)
-
-# Worker processes:
-else:
-    # Work until told not to.
-    while not(comm.bcast(kill, root=0)):
-        # Scores the broadcasted organism.
-        organism = comm.bcast(organism, root=0)
-        experiment.fitness(organism)
-
-# Finalizes MPI.
-MPI.Finalize()
+# Extracts the best performing `neatnik.Organism`.
+pickle.dump(experiment.outcome[-1], open('organism.p', 'wb'))

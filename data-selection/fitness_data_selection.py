@@ -1,6 +1,6 @@
 # NEATnik
 import neatnik
-import parameters
+from . import parameters
 
 # Others
 import pickle
@@ -105,7 +105,7 @@ class DataSelection(neatnik.Experiment):
 
         return
 
-# Sets and and runs the DataSelection `neatnik.Experiment`.
+# Sets up and and runs the DataSelection `neatnik.Experiment`.
 experiment = DataSelection()
 experiment.build()
 experiment.run()

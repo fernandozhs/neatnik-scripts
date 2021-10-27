@@ -1,6 +1,6 @@
 # NEATnik
 import neatnik
-import parameters
+from . import parameters
 
 # Others
 import pickle
