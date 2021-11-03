@@ -1,7 +1,7 @@
 import neatnik
 
 
-# Sets the `neatnik.Parameters` for the MustangCuts `neatnik.Experiment`.
+# Sets the Parameters for the MustangCuts Experiment.
 neatnik.Parameters.evolution_driver = neatnik.FITNESS
 neatnik.Parameters.fitness_threshold = 0.
 neatnik.Parameters.novelty_threshold = 0.
