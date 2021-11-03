@@ -1,24 +1,32 @@
-# NEATnik
+# NEATnik:
 import neatnik
-from . import parameters
+import parameters
 
-# Others
-import pickle
-import numpy as np
+# Typing:
+from neatnik import Experiment
+from neatnik import Organism
+
+# Others:
+import numpy  as np
+import pickle as p
 
 
-# Defines the XOR `neatnik.Experiment`.
-class XOR(neatnik.Experiment):
+# Defines the XOR Experiment.
+class XOR(Experiment):
     """ Drives the evolution of an 'exclusive or' operator. """
+
+    # The stimuli and expected responses of an Organism behaving as an 'exclusive or' operator.
+    stimuli = np.array([[1, 0, 0], [1, 1, 0], [1, 0, 1], [1, 1, 1]])
+    responses = np.array([[0], [1], [1], [0]])
 
     # Constructor:
     def __init__(self) -> None:
-        """ Initializes this XOR `neatnik.Experiment`. """
+        """ Initializes this XOR Experiment. """
 
-        # Initializes the base `neatnik.Experiment`.
-        neatnik.Experiment.__init__(self)
+        # Initializes the base Experiment.
+        super().__init__()
 
-        # Sets the base network graph associated with the first generation of XOR `neatnik.Organism`s.
+        # Sets the base network graph associated with the first generation of Organisms.
         self.vertexes = [
             (0, None, neatnik.ENABLED, neatnik.BIAS,   neatnik.IDENTITY, 0, 2),
             (1, None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
@@ -31,26 +39,20 @@ class XOR(neatnik.Experiment):
             (None, None, neatnik.ENABLED, neatnik.FORWARD, 2, 3, None),
             ]
 
-    # Fitness metric:
-    def fitness(self, organism: neatnik.Organism) -> float:
-        """ Scores the fitness of the input `neatnik.Organism`. """
+    def fitness(self, organism: Organism) -> float:
+        """ Scores the fitness of the input Organism. """
 
-        # The input stimuli and expected responses of an 'exclusive or' operator.
-        stimuli = np.array([[1, 0, 0], [1, 1, 0], [1, 0, 1], [1, 1, 1]])
-        responses = np.array([[0], [1], [1], [0]])
+        # Extracts the Organism's reactions to the Experiment's stimuli.
+        reactions = organism.react(self.stimuli)
 
-        # Extracts the input organism's reactions to the above stimuli.
-        reactions = organism.react(stimuli)
+        # Computes the Organism's score by comparing its reactions to the expected responses.
+        score = 4 - np.abs(reactions - self.responses).flatten().sum()
 
-        # Computes the organism's score by comparing its reactions to the expected responses.
-        score = 4 - np.abs(reactions - responses).flatten().sum()
-
-        # Returns the input organism's score.
+        # Returns the Organism's score.
         return score
 
-    # Monitoring:
     def display(self) -> None:
-        """ Displays information about this `neatnik.Experiment` on the screen. """
+        """ Displays information about this Experiment on the screen. """
 
         # Shows the maximum fitness attained.
         print("Max. Fitness:", "%.2f"%self.parameters.fitness_threshold, end="\r", flush=True)
@@ -58,10 +60,13 @@ class XOR(neatnik.Experiment):
         return
 
 
-# Sets up and runs the XOR `neatnik.Experiment`.
+# Sets up and runs the XOR Experiment.
 experiment = XOR()
 experiment.build()
 experiment.run()
 
-# Extracts the best performing `neatnik.Organism`.
-pickle.dump(experiment.outcome[-1], open('organism.p', 'wb'))
+# Hangs until the return key is pressed.
+input("\nNEATnik has finished.")
+
+# Extracts the best performing Organism.
+p.dump(experiment.outcome[-1], open('organism.p', 'wb'))

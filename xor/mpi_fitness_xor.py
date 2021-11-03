@@ -1,34 +1,38 @@
-# NEATnik
+# NEATnik:
 import neatnik
-from . import parameters
+import parameters
 
-# Others
-import pickle
-import numpy as np
-from mpi4py import MPI
+# Typing:
+from neatnik import Experiment
+from neatnik import Organism
+
+# Others:
+from   mpi4py import MPI
+import numpy  as np
+import pickle as p
 
 
-# Initializes MPI.
-comm = MPI.COMM_WORLD
-size = comm.Get_size()
-rank = comm.Get_rank()
-
-# Defines the XOR `neatnik.Experiment`.
-class XOR(neatnik.Experiment):
+# Defines the XOR Experiment.
+class XOR(Experiment):
     """ Drives the evolution of an 'exclusive or' operator. """
 
     # Makes XOR MPI-aware.
     global rank
     global size
+    global stop
+
+    # The stimuli and expected responses of an Organism behaving as an 'exclusive or' operator.
+    stimuli = np.array([[1, 0, 0], [1, 1, 0], [1, 0, 1], [1, 1, 1]])
+    response = np.array([[0], [1], [1], [0]])
 
     # Constructor:
     def __init__(self) -> None:
-        """ Initializes this XOR `neatnik.Experiment`. """
+        """ Initializes this XOR Experiment. """
 
-        # Initializes the base `neatnik.Experiment`.
-        neatnik.Experiment.__init__(self)
+        # Initializes the base Experiment.
+        super().__init__()
 
-        # Sets the base network graph associated with the first generation of XOR `neatnik.Organism`s.
+        # Sets the base network graph associated with the first generation of Organisms.
         self.vertexes = [
             (0,  None, neatnik.ENABLED, neatnik.BIAS,   neatnik.IDENTITY, 0, 2),
             (1,  None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
@@ -41,35 +45,29 @@ class XOR(neatnik.Experiment):
             (None, None, neatnik.ENABLED, neatnik.FORWARD, 2, 3, None),
             ]
 
-    # Fitness metric:
-    def fitness(self, organism: neatnik.Organism) -> float:
-        """ Scores the fitness of the input `neatnik.Organism`. """
+    def fitness(self, organism: Organism) -> float:
+        """ Scores the fitness of the input Organism. """
 
         # Master process:
         if rank == 0:
-            # Broadcasts the input organism to the worker processes.
-            comm.bcast(kill, root=0)
+            # Broadcasts the current Organism to the worker processes.
+            comm.bcast(stop, root=0)
             comm.bcast(organism, root=0)
 
-        # The input stimuli and expected response of an 'exclusive or' operator.
-        stimuli = np.array([[1, 0, 0], [1, 1, 0], [1, 0, 1], [1, 1, 1]])[rank::size]
-        response = np.array([[0], [1], [1], [0]])[rank::size]
+        # Extracts the Organism's reactions to the Experiment's stimuli.
+        reactions = organism.react(self.stimuli[rank::size])
 
-        # Extracts the input organism's reactions to the above stimuli.
-        reactions = organism.react(stimuli)
+        # Computes the Organism's partial score by comparing its reactions to the expected behavior of an 'exclusive or' operator.
+        score = np.shape(self.stimuli[rank::size])[0] - np.abs(reactions - self.response[rank::size]).flatten().sum()
 
-        # Computes the organism's partial score by comparing its reactions to the expected response.
-        score = np.shape(stimuli)[0] - np.abs(reactions - response).flatten().sum()
-
-        # Sums the input organism's scores obtained by each process.
+        # Sums the partial scores obtained by each process.
         score = comm.reduce(score, op=MPI.SUM, root=0)
 
-        # Returns the organism's score.
+        # Returns the Organism's total score.
         return score
 
-    # Monitoring:
     def display(self) -> None:
-        """ Displays information about this `neatnik.Experiment` on the screen. """
+        """ Displays information about this Experiment on the screen. """
 
         # Shows the maximum fitness attained.
         print("Max. Fitness:", "%.2f"%self.parameters.fitness_threshold, end="\r", flush=True)
@@ -77,29 +75,37 @@ class XOR(neatnik.Experiment):
         return
 
 
-# Initializes a all relevant objects.
+# Initializes MPI.
+comm = MPI.COMM_WORLD
+size = comm.Get_size()
+rank = comm.Get_rank()
+
+# Initializes all relevant objects.
 experiment = XOR()
 organism = None
-kill = False
+stop = False
 
 # Master process:
 if rank == 0:
-    # Sets up and runs the XOR `neatnik.Experiment`.
+    # Sets up and runs the XOR Experiment.
     experiment.build()
     experiment.run()
 
-    # Extracts the best performing `neatnik.Organism`.
-    pickle.dump(experiment.outcome[-1], open('organism.p', 'wb'))
+    # Hangs until the return key is pressed.
+    input("\nNEATnik has finished.")
 
-    # Kills all worker processes.
-    kill = True
-    comm.bcast(kill, root=0)
+    # Extracts the best performing Organism.
+    p.dump(experiment.outcome[-1], open('organism.p', 'wb'))
+
+    # Stops all worker processes.
+    stop = True
+    comm.bcast(stop, root=0)
 
 # Worker processes:
 else:
-    # Work until told not to.
-    while not(comm.bcast(kill, root=0)):
-        # Scores the broadcasted organism.
+    # Works until told not to.
+    while not(comm.bcast(stop, root=0)):
+        # Scores the broadcasted Organism.
         organism = comm.bcast(organism, root=0)
         experiment.fitness(organism)
 
