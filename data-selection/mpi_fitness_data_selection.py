@@ -27,7 +27,7 @@ class DataSelection(Experiment):
     data = np.load('data.npy')
 
     # The stimuli to which all Organisms will react.
-    stimuli = np.insert(data.reshape(-1, 10), 0, 1, axis=1)
+    stimuli = data.reshape(-1, 10)
 
     # The desired maximum noise level resulting from the data selection.
     noise_target = 0.1
@@ -40,7 +40,7 @@ class DataSelection(Experiment):
 
         # Sets the base network graph associated with the first generation of Organisms.
         self.vertexes = [
-            (0,  None, neatnik.ENABLED,  neatnik.BIAS,   neatnik.IDENTITY,  0, 10),
+            (0,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0, 10),
             (1,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  9),
             (2,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  8),
             (3,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  7),
@@ -50,11 +50,11 @@ class DataSelection(Experiment):
             (7,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  3),
             (8,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  2),
             (9,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  1),
-            (10, None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  0),
+            (10, None, neatnik.ENABLED,  neatnik.BIAS,   neatnik.UNITY,     0,  0),
             (11, None, neatnik.ENABLED,  neatnik.OUTPUT, neatnik.HEAVISIDE, 1,  5),
             ]
         self.edges = [
-            (None, None, neatnik.ENABLED, neatnik.BIASING, 0,  11, None),
+            (None, None, neatnik.ENABLED, neatnik.BIASING, 10,  11, None),
             ]
 
     def mask(self, data: NDArray, reactions: NDArray) -> MaskedArray:
@@ -91,7 +91,7 @@ class DataSelection(Experiment):
         reactions = np.array(organism.react(self.stimuli[rank::size]), dtype=bool)
 
         # Extracts the data associated with this process.
-        data = np.delete(self.stimuli[rank::size], 0, 1).reshape(-1, self.data.shape[1])
+        data = self.stimuli[rank::size].reshape(-1, self.data.shape[1])
 
         # Masks and splits the data allocated to this process, producing an average per data split.
         masked_data = self.mask(data, reactions)
