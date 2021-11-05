@@ -22,7 +22,7 @@ class XOR(Experiment):
     global stop
 
     # The stimuli and expected responses of an Organism behaving as an 'exclusive or' operator.
-    stimuli = np.array([[1, 0, 0], [1, 1, 0], [1, 0, 1], [1, 1, 1]])
+    stimuli = np.array([[0, 0], [1, 0], [0, 1], [1, 1]])
     response = np.array([[0], [1], [1], [0]])
 
     # Constructor:
@@ -34,15 +34,15 @@ class XOR(Experiment):
 
         # Sets the base network graph associated with the first generation of Organisms.
         self.vertexes = [
-            (0,  None, neatnik.ENABLED, neatnik.BIAS,   neatnik.IDENTITY, 0, 2),
-            (1,  None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
-            (2,  None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 0),
-            (3,  None, neatnik.ENABLED, neatnik.OUTPUT, neatnik.LOGISTIC, 1, 1),
+            (0, None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 2),
+            (1, None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
+            (2, None, neatnik.ENABLED, neatnik.BIAS,   neatnik.UNITY,    0, 0),
+            (3, None, neatnik.ENABLED, neatnik.OUTPUT, neatnik.LOGISTIC, 1, 1),
             ]
         self.edges = [
-            (None, None, neatnik.ENABLED, neatnik.BIASING, 0, 3, None),
+            (None, None, neatnik.ENABLED, neatnik.FORWARD, 0, 3, None),
             (None, None, neatnik.ENABLED, neatnik.FORWARD, 1, 3, None),
-            (None, None, neatnik.ENABLED, neatnik.FORWARD, 2, 3, None),
+            (None, None, neatnik.ENABLED, neatnik.BIASING, 2, 3, None),
             ]
 
     def fitness(self, organism: Organism) -> float:
