@@ -16,8 +16,8 @@ class XOR(Experiment):
     """ Drives the evolution of an 'exclusive or' operator. """
 
     # The stimuli and expected responses of an Organism behaving as an 'exclusive or' operator.
-    stimuli = np.array([[0, 0], [1, 0], [0, 1], [1, 1]])
-    responses = np.array([[0], [1], [1], [0]])
+    stimuli = np.array([[[0, 0], [1, 0], [0, 1], [1, 1]]])
+    responses = np.array([[[0], [1], [1], [0]]])
 
     def __init__(self) -> None:
         """ Initializes this XOR Experiment. """
@@ -33,8 +33,6 @@ class XOR(Experiment):
             (3, None, neatnik.ENABLED, neatnik.OUTPUT, neatnik.LOGISTIC, 1, 1),
             ]
         self.edges = [
-            (None, None, neatnik.ENABLED, neatnik.FORWARD, 0, 3, None),
-            (None, None, neatnik.ENABLED, neatnik.FORWARD, 1, 3, None),
             (None, None, neatnik.ENABLED, neatnik.BIASING, 2, 3, None),
             ]
 

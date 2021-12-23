@@ -13,6 +13,7 @@ neatnik.Parameters.mutation_attempts = 10
 neatnik.Parameters.spawning_attempts = 10
 neatnik.Parameters.weight_bound = 2.0
 neatnik.Parameters.perturbation_power = 2.0
+neatnik.Parameters.splitting_priority = 2.0
 neatnik.Parameters.initial_activation = neatnik.RELU
 neatnik.Parameters.rejection_fraction = 0.3
 neatnik.Parameters.stagnation_threshold = 15
