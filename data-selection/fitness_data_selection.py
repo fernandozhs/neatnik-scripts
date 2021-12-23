@@ -3,112 +3,99 @@ import neatnik
 import parameters
 
 # Typing:
+from typing        import Dict
 from neatnik       import Experiment
 from neatnik       import Organism
 from numpy.typing  import NDArray
 from numpy.ma.core import MaskedArray
 
 # Others:
-import numpy  as np
-import pickle as p
+import pickle       as p
+import numpy        as np
+import scipy.signal as sp
 
 
-# Defines the DataSelection Experiment.
 class DataSelection(Experiment):
     """ Drives the evolution of a data-selecting artificial neural network. """
-
-    # Loads this Experiment's data.
-    data = np.load('data.npy')
-
-    # The stimuli to which all Organisms will react.
-    stimuli = data.reshape(-1, 10)
-
-    # The desired maximum noise level resulting from the data selection.
-    noise_target = 0.1
 
     def __init__(self) -> None:
         """ Initializes this DataSelection Experiment. """
 
-        # Initializes the base Experiment.
         super().__init__()
 
-        # Sets the base network graph associated with the first generation of Organisms.
+        self.tod = p.load(open('tod.p', 'rb'))
+        self.stimuli = self.prepare(self.tod)
+
+        self.baseline = 0.001
+        self.filter = sp.butter(10, 45, 'highpass', fs=1./np.diff(self.tod['time']).mean(), output='sos')
+
         self.vertexes = [
-            (0,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0, 10),
-            (1,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  9),
-            (2,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  8),
-            (3,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  7),
-            (4,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  6),
-            (5,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  5),
-            (6,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  4),
-            (7,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  3),
-            (8,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  2),
-            (9,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  1),
-            (10, None, neatnik.ENABLED,  neatnik.BIAS,   neatnik.UNITY,     0,  0),
-            (11, None, neatnik.ENABLED,  neatnik.OUTPUT, neatnik.HEAVISIDE, 1,  5),
+            (0,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0, 13),
+            (1,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0, 12),
+            (2,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0, 11),
+            (3,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0, 10),
+            (4,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  9),
+            (5,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  8),
+            (6,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  7),
+            (7,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  6),
+            (8,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  5),
+            (9,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  4),
+            (10, None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  3),
+            (11, None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  2),
+            (12, None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0,  1),
+            (13, None, neatnik.ENABLED,  neatnik.BIAS,   neatnik.UNITY,     0,  0),
+            (14, None, neatnik.ENABLED,  neatnik.OUTPUT, neatnik.HEAVISIDE, 1,  6),
             ]
         self.edges = [
-            (None, None, neatnik.ENABLED, neatnik.BIASING, 10,  11, None),
+            (None, None, neatnik.ENABLED, neatnik.BIASING, 13,  14, None),
             ]
 
-    def mask(self, data: NDArray, reactions: NDArray) -> MaskedArray:
-        """ Masks the input data according to the given Organism's reactions. """
+    def prepare(self, tod : Dict[str, NDArray]) -> NDArray:
+        """ Puts time-ordered data into a format which can be passed to Organisms as stimuli. """
 
-        # Creates a mask with shape matching that of the input data.
-        mask = np.tile(reactions, 10).reshape(data.shape)
+        amplitudes = np.lib.stride_tricks.sliding_window_view(tod['amplitudes'], window_shape=10, axis=1)
+        pointing = np.lib.stride_tricks.sliding_window_view(tod['pointing'], window_shape=10, axis=0)[:,-1]
+        time = np.lib.stride_tricks.sliding_window_view(tod['time'], window_shape=10, axis=0)[:,-1]
 
-        # Returns the input data combined with its associated mask.
-        return np.ma.masked_array(data, mask)
+        pointing = np.repeat(pointing.reshape(-1,1)[np.newaxis,:], repeats=10, axis=0)
+        time = np.repeat(time.reshape(-1,1)[np.newaxis,:], repeats=10, axis=0)
+        tags = np.repeat(tod['tags'][:,np.newaxis,np.newaxis], repeats=amplitudes.shape[1], axis=1)
 
-    def average(self, data: MaskedArray, number_splits: int) -> MaskedArray:
-        """ Splits the input data and extracts the point-wise average from each split. """
+        return np.concatenate((amplitudes, pointing, time, tags), axis=2)
 
-        # Returns the point-wise average for each data split.
-        return np.array([split.mean(axis=0) for split in np.array_split(data, number_splits)])
+    def mask(self, reactions: NDArray) -> NDArray:
+        """ Generates a mask from an Organism's reactions. """
 
-    def noise(self, averages: MaskedArray) -> MaskedArray:
-        """ Estimates the point-wise signal noise by computing the standard deviation of several split averages. """
+        reactions = np.repeat(reactions, 10, axis=2)
+        padding = np.zeros((reactions.shape[0], reactions.shape[1], self.tod['amplitudes'].shape[1] - reactions.shape[2]))
+        reactions = np.concatenate((reactions, padding), axis=2)
 
-        # Returns the point-wise estimated signal noise.
-        return averages.std(axis=0)
+        i, j, k = np.ogrid[0:reactions.shape[0],0:reactions.shape[1],0:reactions.shape[2]]
+        l = k - np.arange(0, reactions.shape[1])[:,np.newaxis]
+
+        return reactions[i,j,l].sum(axis=1) > 5
 
     def fitness(self, organism: Organism) -> float:
         """ Scores the fitness of the input Organism. """
 
-        # Extracts the Organism's reactions to the Experiment's stimuli.
-        reactions = np.array(organism.react(self.stimuli), dtype=bool)
+        mask = self.mask(organism.react())
+        samples = (~mask).sum()
+        power = np.sum(np.ma.masked_array(sp.sosfilt(self.filter, self.tod['amplitudes'])**2, mask))
 
-        # Masks this Experiment's data according to the above reactions.
-        masked_data = self.mask(self.data, reactions)
-
-        # Splits this Experiment's and extracts an average signal per data split.
-        averages = self.average(masked_data, 12)
-
-        # Estimates the point-wise signal noise from all averages.
-        noise_estimate = self.noise(averages)
-
-        # Scores the Organism's fitness.
-        score = (~reactions).sum() * np.exp(-noise_estimate.mean()/self.noise_target)
-
-        # Returns the Organism's score.
-        return score
+        return (samples/self.tod['amplitudes'].size)*np.exp(1. - (power/samples)/self.baseline)
 
     def display(self) -> None:
         """ Displays information about this Experiment on the screen. """
 
-        # Shows the maximum fitness attained.
-        print("Max. Fitness:", "%.2f"%self.parameters.fitness_threshold, end="\r", flush=True)
+        print("Max. Fitness:", "%.4f"%self.parameters.fitness_threshold, end="\n", flush=True)
 
         return
 
 
-# Sets up and and runs the DataSelection Experiment.
 experiment = DataSelection()
 experiment.build()
 experiment.run()
 
-# Hangs until the return key is pressed.
 input("\nNEATnik has finished.")
 
-# Extracts the best performing Organism.
 p.dump(experiment.outcome[-1], open('organism.p', 'wb'))
