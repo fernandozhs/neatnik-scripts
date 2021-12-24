@@ -95,7 +95,7 @@ class DataSelection(Experiment):
         power = comm.reduce(power, op=mpi.SUM, root=0)
 
         if rank == 0:
-            return (samples/self.tod['amplitudes'].size)*np.exp(1. - (power/samples)/self.baseline)
+            return (samples/self.tod['amplitudes'].size)**2 * np.exp(1. - (power/samples)/self.baseline)
 
         else:
             return 0.

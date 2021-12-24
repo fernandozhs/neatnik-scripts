@@ -82,7 +82,7 @@ class DataSelection(Experiment):
         samples = (~mask).sum()
         power = np.sum(np.ma.masked_array(sp.sosfilt(self.filter, self.tod['amplitudes'])**2, mask))
 
-        return (samples/self.tod['amplitudes'].size)*np.exp(1. - (power/samples)/self.baseline)
+        return (samples/self.tod['amplitudes'].size)**2 * np.exp(1. - (power/samples)/self.baseline)
 
     def display(self) -> None:
         """ Displays information about this Experiment on the screen. """
