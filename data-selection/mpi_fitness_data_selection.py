@@ -87,7 +87,7 @@ class DataSelection(Experiment):
             comm.bcast(stop, root=0)
             comm.bcast(organism, root=0)
 
-        mask = self.mask(organism.react(self.stimuli))
+        mask = self.mask(organism.react())
         samples = (~mask).sum()
         power = np.sum(np.ma.masked_array(sp.sosfilt(self.filter, self.tod['amplitudes'][rank::size])**2, mask))
 
@@ -103,7 +103,7 @@ class DataSelection(Experiment):
     def display(self) -> None:
         """ Displays information about this Experiment on the screen. """
 
-        print("Max. Fitness:", "%.4f"%self.parameters.fitness_threshold, end="\n", flush=True)
+        print("Max. Fitness:", "%.4f"%neatnik.Parameters.fitness_threshold, end="\r", flush=True)
 
         return
 

@@ -87,7 +87,7 @@ class DataSelection(Experiment):
     def display(self) -> None:
         """ Displays information about this Experiment on the screen. """
 
-        print("Max. Fitness:", "%.4f"%self.parameters.fitness_threshold, end="\n", flush=True)
+        print("Max. Fitness:", "%.4f"%neatnik.Parameters.fitness_threshold, end="\r", flush=True)
 
         return
 
