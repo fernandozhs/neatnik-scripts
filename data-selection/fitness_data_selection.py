@@ -87,15 +87,19 @@ class DataSelection(Experiment):
     def display(self) -> None:
         """ Displays information about this Experiment on the screen. """
 
-        print("Max. Fitness:", "%.4f"%neatnik.Parameters.fitness_threshold, end="\r", flush=True)
+        max_score = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0].score
+
+        print("Max. Fitness:", "%.6f"%max_score, end="\r", flush=True)
 
         return
 
 
 experiment = DataSelection()
-experiment.build()
 experiment.run()
 
-input("\nNEATnik has finished.")
+if experiment.MPI_rank == 0:
 
-p.dump(experiment.outcome[-1], open('organism.p', 'wb'))
+    input("\nNEATnik has finished.")
+
+    organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
+    p.dump(organism.graph(), open('organism.p', 'wb'))

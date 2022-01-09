@@ -2,11 +2,7 @@ import neatnik
 
 
 # Sets the `neatnik.Parameters` for the XOR `neatnik.Experiment`.
-neatnik.Parameters.evolution_driver = neatnik.FITNESS
-neatnik.Parameters.fitness_threshold = 0.
-neatnik.Parameters.novelty_threshold = 0.
-neatnik.Parameters.novelty_neighbors = 0
-neatnik.Parameters.novelty_threshold_modifiers = [0., 0.]
+neatnik.Parameters.random_seed = 344388926
 neatnik.Parameters.generational_cycles = 150
 neatnik.Parameters.population_size = 100
 neatnik.Parameters.mutation_attempts = 10

@@ -11,21 +11,14 @@ import numpy  as np
 import pickle as p
 
 
-# Defines the XOR Experiment.
 class XOR(Experiment):
     """ Drives the evolution of an 'exclusive or' operator. """
 
-    # The stimuli and expected responses of an Organism behaving as an 'exclusive or' operator.
-    stimuli = np.array([[[0, 0], [1, 0], [0, 1], [1, 1]]])
-    responses = np.array([[[0], [1], [1], [0]]])
-
     def __init__(self) -> None:
-        """ Initializes this XOR Experiment. """
+        """ Initializes the XOR Experiment. """
 
-        # Initializes the base Experiment.
         super().__init__()
 
-        # Sets the base network graph associated with the first generation of Organisms.
         self.vertexes = [
             (0, None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 2),
             (1, None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
@@ -36,34 +29,36 @@ class XOR(Experiment):
             (None, None, neatnik.ENABLED, neatnik.BIASING, 2, 3, None),
             ]
 
+        self.stimuli = np.array([[[0, 0], [1, 0], [0, 1], [1, 1]]])
+        self.responses = np.array([[[0], [1], [1], [0]]])
+
     def fitness(self, organism: Organism) -> float:
         """ Scores the fitness of the input Organism. """
 
-        # Extracts the Organism's reactions to the Experiment's stimuli.
-        reactions = organism.react(self.stimuli)
+        reactions = organism.react()
 
-        # Computes the Organism's score by comparing its reactions to the expected responses.
         score = 4 - np.abs(reactions - self.responses).flatten().sum()
 
-        # Returns the Organism's score.
         return score
 
     def display(self) -> None:
-        """ Displays information about this Experiment on the screen. """
+        """ Displays information about the Experiment on the screen. """
 
-        # Shows the maximum fitness attained.
-        print("Max. Fitness:", "%.2f"%self.parameters.fitness_threshold, end="\r", flush=True)
+        max_score = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0].score
+
+        print("Max. Fitness:", "%.2f"%max_score, end="\r", flush=True)
 
         return
 
 
-# Sets up and runs the XOR Experiment.
 experiment = XOR()
-experiment.build()
 experiment.run()
 
-# Hangs until the return key is pressed.
-input("\nNEATnik has finished.")
+if experiment.MPI_rank == 0:
 
-# Extracts the best performing Organism.
-p.dump(experiment.outcome[-1], open('organism.p', 'wb'))
+    input("\nNEATnik has finished.")
+
+    # print(experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0].graph())
+
+    organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
+    p.dump(organism.graph(), open('organism.p', 'wb'))
