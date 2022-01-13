@@ -1,7 +1,6 @@
 import neatnik
 
 
-# Sets the `neatnik.Parameters` for the XOR `neatnik.Experiment`.
 neatnik.Parameters.random_seed = 344388926
 neatnik.Parameters.generational_cycles = 150
 neatnik.Parameters.population_size = 100
