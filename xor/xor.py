@@ -56,7 +56,5 @@ experiment.run()
 
 if experiment.MPI_rank == 0:
 
-    input("\nNEATnik has finished.")
-
     organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
     p.dump(organism.graph(), open('organism.p', 'wb'))
