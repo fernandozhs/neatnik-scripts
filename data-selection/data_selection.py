@@ -3,11 +3,8 @@ import neatnik
 import parameters
 
 # Typing:
-from typing        import Dict
-from neatnik       import Experiment
-from neatnik       import Organism
-from numpy.typing  import NDArray
-from numpy.ma.core import MaskedArray
+from neatnik import Experiment
+from neatnik import Organism
 
 # Others:
 import pickle       as p
@@ -23,11 +20,7 @@ class DataSelection(Experiment):
 
         super().__init__()
 
-        self.tod = p.load(open('tod.p', 'rb'))
-        self.stimuli = self.prepare(self.tod)
-
-        self.baseline = 0.001
-        self.filter = sp.butter(10, 45, 'highpass', fs=1./np.diff(self.tod['time']).mean(), output='sos')
+        self.prepare('./tod.p')
 
         self.vertexes = [
             (0,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0, 13),
@@ -50,39 +43,52 @@ class DataSelection(Experiment):
             (None, None, neatnik.ENABLED, neatnik.BIASING, 13,  14, None),
             ]
 
-    def prepare(self, tod : Dict[str, NDArray]) -> NDArray:
-        """ Puts time-ordered data into a format which can be passed to Organisms as stimuli. """
+        self.target = 0.001
 
+    def prepare(self, file : str) -> None:
+        """ Puts the raw time-ordered data into a format which can be used by the algorithm. """
+
+        tod = p.load(open(file, 'rb'))
+
+        # Puts the raw time-ordered data into a more appropriate format.
         amplitudes = np.lib.stride_tricks.sliding_window_view(tod['amplitudes'], window_shape=10, axis=1)
-        pointing = np.lib.stride_tricks.sliding_window_view(tod['pointing'], window_shape=10, axis=0)[:,-1]
-        time = np.lib.stride_tricks.sliding_window_view(tod['time'], window_shape=10, axis=0)[:,-1]
 
+        pointing = np.lib.stride_tricks.sliding_window_view(tod['pointing'], window_shape=10, axis=0)[:,-1]
         pointing = np.repeat(pointing.reshape(-1,1)[np.newaxis,:], repeats=10, axis=0)
+
+        time = np.lib.stride_tricks.sliding_window_view(tod['time'], window_shape=10, axis=0)[:,-1]
         time = np.repeat(time.reshape(-1,1)[np.newaxis,:], repeats=10, axis=0)
+
         tags = np.repeat(tod['tags'][:,np.newaxis,np.newaxis], repeats=amplitudes.shape[1], axis=1)
 
-        return np.concatenate((amplitudes, pointing, time, tags), axis=2)
+        # Collects the above into a single object which can be passed to Organisms as stimuli.
+        self.stimuli = np.concatenate((amplitudes, pointing, time, tags), axis=2)
 
-    def mask(self, reactions: NDArray) -> NDArray:
-        """ Generates a mask from an Organism's reactions. """
+        # Stores the power density of the filtered raw time-ordered amplitudes.
+        filter = sp.butter(10, 45, 'highpass', fs=1./np.diff(tod['time']).mean(), output='sos')
+        self.data = sp.sosfilt(filter, tod['amplitudes'])**2
 
-        reactions = np.repeat(reactions, 10, axis=2)
-        padding = np.zeros((reactions.shape[0], reactions.shape[1], self.tod['amplitudes'].shape[1] - reactions.shape[2]))
-        reactions = np.concatenate((reactions, padding), axis=2)
-
-        i, j, k = np.ogrid[0:reactions.shape[0],0:reactions.shape[1],0:reactions.shape[2]]
-        l = k - np.arange(0, reactions.shape[1])[:,np.newaxis]
-
-        return reactions[i,j,l].sum(axis=1) > 5
+        return
 
     def fitness(self, organism: Organism) -> float:
         """ Scores the fitness of the input Organism. """
 
-        mask = self.mask(organism.react())
-        samples = (~mask).sum()
-        power = np.sum(np.ma.masked_array(sp.sosfilt(self.filter, self.tod['amplitudes'])**2, mask))
+        # Extracts the Organism's reactions.
+        reactions = organism.react()
 
-        return (samples/self.tod['amplitudes'].size)**2 * np.exp(1. - (power/samples)/self.baseline)
+        # Initializes the total number of samples retained and their associated power.
+        power = 0
+        samples = self.data.size - np.sum(reactions)
+
+        # Translates the reactions into cuts.
+        reactions = [np.ma.clump_unmasked(reaction) for reaction in np.ma.masked_array(reactions, reactions)]
+
+        # Computes the total amount of power in the kept samples.
+        for amplitudes, cuts in zip(self.data, reactions):
+            for cut in cuts:
+                power += amplitudes[cut].sum()
+
+        return (samples/self.data.size)**2 * np.exp(1. - (power/samples)/self.target)
 
     def display(self) -> None:
         """ Displays information about this Experiment on the screen. """
@@ -98,8 +104,6 @@ experiment = DataSelection()
 experiment.run()
 
 if experiment.MPI_rank == 0:
-
-    input("\nNEATnik has finished.")
 
     organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
     p.dump(organism.graph(), open('organism.p', 'wb'))

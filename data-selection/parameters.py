@@ -2,7 +2,7 @@ import neatnik
 
 
 neatnik.Parameters.random_seed = 344388926
-neatnik.Parameters.generational_cycles = 300
+neatnik.Parameters.generational_cycles = 200
 neatnik.Parameters.population_size = 100
 neatnik.Parameters.mutation_attempts = 10
 neatnik.Parameters.spawning_attempts = 10
@@ -21,7 +21,7 @@ neatnik.Parameters.adding_link = [0.4, 0.2, 0.2, 0.2, 0.]
 neatnik.Parameters.enabling_node = [0.3, 0.0, 0.7]
 neatnik.Parameters.altering_nodes = [1., 0.]
 neatnik.Parameters.altering_activation = [1., 0., 0., 0.]
-neatnik.Parameters.adding_node = [0.4, 0.3, 0.3]
+neatnik.Parameters.adding_node = [0.8, 0.1, 0.1]
 neatnik.Parameters.assimilating_links = [0., 1.]
 neatnik.Parameters.assimilating_nodes = [1., 0.]
 neatnik.Parameters.assimilating_weight = [0.5, 0.5]
