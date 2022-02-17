@@ -5,6 +5,10 @@ import parameters
 # Minkasi:
 import minkasi
 
+# Typing:
+from neatnik import Experiment
+from neatnik import Organism
+
 # Others:
 import pickle       as p
 import numpy        as np
@@ -53,33 +57,34 @@ class MustangCuts(neatnik.Experiment):
         minkasi.downsample_tod(tod)
         minkasi.truncate_tod(tod)
         tod['dat_calib'] = minkasi.fit_cm_plus_poly(tod['dat_calib'])
+        tod = minkasi.Tod(tod)
 
         # Puts the raw time-ordered data into a more appropriate format.
-        dat = np.lib.stride_tricks.sliding_window_view(self.tod.info['dat_calib'], window_shape=10, axis=1)
+        dat = np.lib.stride_tricks.sliding_window_view(tod.info['dat_calib'], window_shape=10, axis=1)
         dat = dat/np.max(dat)
 
-        dx = np.lib.stride_tricks.sliding_window_view(self.tod.info['dx'], window_shape=10, axis=1)[:,:,4:5]
+        dx = np.lib.stride_tricks.sliding_window_view(tod.info['dx'], window_shape=10, axis=1)[:,:,4:5]
         dx = dx/np.max(dx)
 
-        dy = np.lib.stride_tricks.sliding_window_view(self.tod.info['dy'], window_shape=10, axis=1)[:,:,4:5]
+        dy = np.lib.stride_tricks.sliding_window_view(tod.info['dy'], window_shape=10, axis=1)[:,:,4:5]
         dy = dx/np.max(dy)
 
-        elev = np.lib.stride_tricks.sliding_window_view(self.tod.info['elev'], window_shape=10, axis=1)[:,:,4:5]
+        elev = np.lib.stride_tricks.sliding_window_view(tod.info['elev'], window_shape=10, axis=1)[:,:,4:5]
         elev = dx/np.max(elev)
 
-        time = np.linspace(0, 1, self.tod.info['dat_calib'].shape[1])
+        time = np.linspace(0, 1, tod.info['dat_calib'].shape[1])
         time = np.lib.stride_tricks.sliding_window_view(time, window_shape=10, axis=0)[:,4]
         time = np.repeat(time.reshape(-1,1)[np.newaxis,:], repeats=dat.shape[0], axis=0)
 
-        pixid = np.repeat(self.tod.info['pixid'][:,np.newaxis,np.newaxis], repeats=dat.shape[1], axis=1)
+        pixid = np.repeat(tod.info['pixid'][:,np.newaxis,np.newaxis], repeats=dat.shape[1], axis=1)
         pixid = pixid/np.max(pixid)
 
         # Collects the above into a single object which can be passed to Organisms as stimuli.
         self.stimuli = np.concatenate((dat, dx, dy, elev, time, pixid), axis=2)
 
         # Stores the power density of the filtered raw time-ordered amplitudes.
-        self.tod.set_noise(minkasi.NoiseSmoothedSVD)
-        self.data = self.tod.apply_noise(self.tod.info['dat_calib'])**2
+        tod.set_noise(minkasi.NoiseSmoothedSVD)
+        self.data = tod.apply_noise(tod.info['dat_calib'])**2
 
         return
 
