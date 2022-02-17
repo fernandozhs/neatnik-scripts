@@ -1,9 +1,9 @@
 import neatnik
 
 
-neatnik.Parameters.random_seed = 344388926
-neatnik.Parameters.generational_cycles = 300
-neatnik.Parameters.population_size = 100
+neatnik.Parameters.random_seed = 35499851
+neatnik.Parameters.generational_cycles = 600
+neatnik.Parameters.population_size = 300
 neatnik.Parameters.mutation_attempts = 10
 neatnik.Parameters.spawning_attempts = 10
 neatnik.Parameters.weight_bound = 2.0
@@ -11,7 +11,7 @@ neatnik.Parameters.perturbation_power = 2.0
 neatnik.Parameters.splitting_priority = 2.5
 neatnik.Parameters.initial_activation = neatnik.RELU
 neatnik.Parameters.rejection_fraction = 0.3
-neatnik.Parameters.stagnation_threshold = 25
+neatnik.Parameters.stagnation_threshold = 20
 neatnik.Parameters.compatibility_threshold = 3.0
 neatnik.Parameters.compatibility_weights = [0.5, 1., 1.]
 neatnik.Parameters.enabling_link = [0.5, 0.5]

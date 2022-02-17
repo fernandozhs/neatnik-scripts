@@ -106,4 +106,4 @@ experiment.run()
 if experiment.MPI_rank == 0:
 
     organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
-    p.dump(organism.graph(), open('organism.p', 'wb'))
+    p.dump(organism.graph(), open('/scratch/r/rbond/fzhs/data_selection_organism.p', 'wb'))

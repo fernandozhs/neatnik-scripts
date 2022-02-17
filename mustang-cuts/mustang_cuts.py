@@ -8,7 +8,6 @@ import minkasi
 # Others:
 import pickle       as p
 import numpy        as np
-import scipy.signal as sp
 
 
 class MustangCuts(neatnik.Experiment):
@@ -19,11 +18,8 @@ class MustangCuts(neatnik.Experiment):
 
         super().__init__()
 
-        self.tod = self.read('/Users/Fernando/Documents/Data/MUSTANG/moo0135/Signal_TOD-AGBT18B_215_01-s8.fits')
-        self.stimuli = self.prepare(self.tod)
-
-        self.baseline = 0.001
-        self.filter = sp.butter(10, 10, 'highpass', fs=1./self.tod.info['dt'], output='sos')
+        self.prepare('/project/s/sievers/sievers/mustang/data/Zw3146/Signal_TOD-AGBT18A_175_01-s11.fits')
+        self.target = 0.001
 
         self.vertexes = [
             (0,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0, 15),
@@ -48,22 +44,17 @@ class MustangCuts(neatnik.Experiment):
             (None, None, neatnik.ENABLED, neatnik.BIASING, 15,  16, None),
             ]
 
-    def read(self, path):
-        """ Reads Mustang time-ordered data from a FITS file. """
+    def prepare(self, file : str) -> None:
+        """ Puts time-ordered data into a format which can be understood by the algorithm. """ 
 
+        # Loads the MUSTANG time-ordered data from the input FITS file.
         tod = minkasi.read_tod_from_fits(path)
-
         minkasi.truncate_tod(tod)
         minkasi.downsample_tod(tod)
         minkasi.truncate_tod(tod)
-
         tod['dat_calib'] = minkasi.fit_cm_plus_poly(tod['dat_calib'])
 
-        return minkasi.Tod(tod)
-
-    def prepare(self, tod):
-        """ Puts time-ordered data into a format which can be passed to Organisms as stimuli. """
-
+        # Puts the raw time-ordered data into a more appropriate format.
         dat = np.lib.stride_tricks.sliding_window_view(self.tod.info['dat_calib'], window_shape=10, axis=1)
         dat = dat/np.max(dat)
 
@@ -83,38 +74,41 @@ class MustangCuts(neatnik.Experiment):
         pixid = np.repeat(self.tod.info['pixid'][:,np.newaxis,np.newaxis], repeats=dat.shape[1], axis=1)
         pixid = pixid/np.max(pixid)
 
+        # Collects the above into a single object which can be passed to Organisms as stimuli.
+        self.stimuli = np.concatenate((dat, dx, dy, elev, time, pixid), axis=2)
+
+        # Stores the power density of the filtered raw time-ordered amplitudes.
         self.tod.set_noise(minkasi.NoiseSmoothedSVD)
-        self.tod.info['dat_calib'] = self.tod.apply_noise(self.tod.info['dat_calib'])
+        self.data = self.tod.apply_noise(self.tod.info['dat_calib'])**2
 
-        return np.concatenate((dat, dx, dy, elev, time, pixid), axis=2)
+        return
 
-    def mask(self, reactions):
-        """ Generates a mask from an Organism's reactions. """
-
-        reactions = np.repeat(reactions, 10, axis=2)
-        padding = np.zeros((reactions.shape[0], reactions.shape[1], self.tod.info['dat_calib'].shape[1] - reactions.shape[2]))
-        reactions = np.concatenate((reactions, padding), axis=2)
-
-        i, j, k = np.ogrid[0:reactions.shape[0],0:reactions.shape[1],0:reactions.shape[2]]
-        l = k - np.arange(0, reactions.shape[1])[:,np.newaxis]
-
-        return reactions[i,j,l].sum(axis=1) > 5
-
-    def fitness(self, organism):
+    def fitness(self, organism : Organism) -> float:
         """ Scores the fitness of the input Organism. """
 
-        mask = self.mask(organism.react())
-        samples = (~mask).sum()
-        power = np.sum(np.ma.masked_array(sp.sosfilt(self.filter, self.tod.info['dat_calib'])**2, mask))
+        # Extracts the Organism's reactions.
+        reactions = organism.react()
 
-        return (samples/self.tod.info['dat_calib'].size)**2 * np.exp(1. - (power/samples)/self.baseline)
+        # Initializes the total number of samples retained and their associated power.
+        power = 0
+        samples = self.data.size - np.sum(reactions)
 
-    def display(self):
+        # Translates the reactions into cuts.
+        reactions = [np.ma.clump_unmasked(reaction) for reaction in np.ma.masked_array(reactions, reactions)]
+
+        # Computes the total amount of power in the kept samples.
+        for amplitudes, cuts in zip(self.data, reactions):
+            for cut in cuts:
+                power += amplitudes[cut].sum()
+
+        return (samples/self.data.size)**2 * np.exp(1. - (power/samples)/self.target)
+
+    def display(self) -> None:
         """ Displays information about this Experiment on the screen. """
 
         max_score = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0].score
 
-        print("Max. Fitness:", "%.6f"%max_score, end="\n", flush=True)
+        print("Max. Fitness:", "%.6f"%max_score, end="\r", flush=True)
 
         return
 
@@ -125,4 +119,4 @@ experiment.run()
 if experiment.MPI_rank == 0:
 
     organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
-    p.dump(organism.graph(), open('mustang_organism.p', 'wb'))
+    p.dump(organism.graph(), open('/scratch/r/rbond/fzhs/mustang_cuts_organism.p', 'wb'))
