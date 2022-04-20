@@ -10,8 +10,9 @@ from neatnik import Experiment
 from neatnik import Organism
 
 # Others:
-import pickle       as p
-import numpy        as np
+import operator
+import pickle as p
+import numpy  as np
 
 
 class MustangCuts(neatnik.Experiment):
@@ -23,7 +24,7 @@ class MustangCuts(neatnik.Experiment):
         super().__init__()
 
         self.prepare('/project/s/sievers/sievers/mustang/data/Zw3146/Signal_TOD-AGBT18A_175_01-s11.fits')
-        self.target = 0.001
+        self.target = 79776.12195529531
 
         self.vertexes = [
             (0,  None, neatnik.DISABLED, neatnik.INPUT,  neatnik.IDENTITY,  0, 15),
@@ -59,32 +60,35 @@ class MustangCuts(neatnik.Experiment):
         tod['dat_calib'] = minkasi.fit_cm_plus_poly(tod['dat_calib'])
         tod = minkasi.Tod(tod)
 
+        # Restrict the detector timestreams to the following:
+        detectors = [1,2,3,4,77,78,130]
+
         # Puts the raw time-ordered data into a more appropriate format.
-        dat = np.lib.stride_tricks.sliding_window_view(tod.info['dat_calib'], window_shape=10, axis=1)
-        dat = dat/np.max(dat)
+        dat = np.lib.stride_tricks.sliding_window_view(tod.info['dat_calib'][detectors], window_shape=10, axis=1)
+        dat = dat/np.max(tod.info['dat_calib'])
 
-        dx = np.lib.stride_tricks.sliding_window_view(tod.info['dx'], window_shape=10, axis=1)[:,:,4:5]
-        dx = dx/np.max(dx)
+        dx = np.lib.stride_tricks.sliding_window_view(tod.info['dx'][detectors], window_shape=10, axis=1)[:,:,4:5]
+        dx = dx/np.max(tod.info['dx'])
 
-        dy = np.lib.stride_tricks.sliding_window_view(tod.info['dy'], window_shape=10, axis=1)[:,:,4:5]
-        dy = dx/np.max(dy)
+        dy = np.lib.stride_tricks.sliding_window_view(tod.info['dy'][detectors], window_shape=10, axis=1)[:,:,4:5]
+        dy = dx/np.max(tod.info['dy'])
 
-        elev = np.lib.stride_tricks.sliding_window_view(tod.info['elev'], window_shape=10, axis=1)[:,:,4:5]
-        elev = dx/np.max(elev)
+        elev = np.lib.stride_tricks.sliding_window_view(tod.info['elev'][detectors], window_shape=10, axis=1)[:,:,4:5]
+        elev = dx/np.max(tod.info['elev'])
 
         time = np.linspace(0, 1, tod.info['dat_calib'].shape[1])
         time = np.lib.stride_tricks.sliding_window_view(time, window_shape=10, axis=0)[:,4]
         time = np.repeat(time.reshape(-1,1)[np.newaxis,:], repeats=dat.shape[0], axis=0)
 
-        pixid = np.repeat(tod.info['pixid'][:,np.newaxis,np.newaxis], repeats=dat.shape[1], axis=1)
-        pixid = pixid/np.max(pixid)
+        pixid = np.repeat(tod.info['pixid'][:,np.newaxis,np.newaxis], repeats=dat.shape[1], axis=1)[detectors]
+        pixid = pixid/np.max(tod.info['pixid'])
 
         # Collects the above into a single object which can be passed to Organisms as stimuli.
         self.stimuli = np.concatenate((dat, dx, dy, elev, time, pixid), axis=2)
 
         # Stores the power density of the filtered raw time-ordered amplitudes.
         tod.set_noise(minkasi.NoiseSmoothedSVD)
-        self.data = tod.apply_noise(tod.info['dat_calib'])**2
+        self.data = (tod.apply_noise(tod.info['dat_calib'])**2)[detectors].flatten()
 
         return
 
@@ -99,18 +103,17 @@ class MustangCuts(neatnik.Experiment):
         samples = self.data.size - np.sum(reactions)
 
         # Translates the reactions into cuts.
-        reactions = [np.ma.clump_unmasked(reaction) for reaction in np.ma.masked_array(reactions, reactions)]
+        uncut = np.ma.clump_unmasked(np.ma.masked_array(reactions, reactions))
 
-        # Computes the total amount of power in the kept samples.
-        for amplitudes, cuts in zip(self.data, reactions):
-            for cut in cuts:
-                power += amplitudes[cut].sum()
+        # Computes the amount of uncut power.
+        if len(uncut) > 0: power = sum(map(np.sum, operator.itemgetter(*uncut)(self.data)))
 
         return (samples/self.data.size)**2 * np.exp(1. - (power/samples)/self.target)
 
     def display(self) -> None:
-        """ Displays information about this Experiment on the screen. """
+        """ Displays information about the Experiment on the screen. """
 
+        # The maximum fitness score attained.
         max_score = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0].score
 
         print("Max. Fitness:", "%.6f"%max_score, end="\r", flush=True)
@@ -122,6 +125,5 @@ experiment = MustangCuts()
 experiment.run()
 
 if experiment.MPI_rank == 0:
-
     organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
     p.dump(organism.graph(), open('/scratch/r/rbond/fzhs/mustang_cuts_organism.p', 'wb'))
