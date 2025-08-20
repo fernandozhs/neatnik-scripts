@@ -19,17 +19,21 @@ class XOR(Experiment):
 
         super().__init__()
 
-        self.vertexes = [
-            (0, None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 2),
-            (1, None, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
-            (2, None, neatnik.ENABLED, neatnik.BIAS,   neatnik.UNITY,    0, 0),
-            (3, None, neatnik.ENABLED, neatnik.OUTPUT, neatnik.LOGISTIC, 1, 1),
+        nodes = [
+            (0, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 2),
+            (1, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
+            (2, neatnik.ENABLED, neatnik.BIAS,   neatnik.UNITY,    0, 0),
+            (3, neatnik.ENABLED, neatnik.OUTPUT, neatnik.LOGISTIC, 1, 1),
             ]
-        self.edges = [
-            (None, None, neatnik.ENABLED, neatnik.BIASING, 2, 3, None),
+        links = [
+            (None, neatnik.ENABLED, neatnik.BIASING, None, 2, 3),
             ]
+        population = (nodes,links)
+        self.set(population)
 
-        self.stimuli = np.array([[[0, 0], [1, 0], [0, 1], [1, 1]]])
+        stimuli = [[[0, 0], [1, 0], [0, 1], [1, 1]]]
+        self.set(stimuli)
+
         self.responses = np.array([[[0], [1], [1], [0]]])
 
     def fitness(self, organism: Organism) -> float:
@@ -55,6 +59,5 @@ experiment = XOR()
 experiment.run()
 
 if experiment.MPI_rank == 0:
-
     organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
-    p.dump(organism.graph(), open('/scratch/r/rbond/fzhs/xor_organism.p', 'wb'))
+    p.dump(organism.data(), open('./xor_organism.p', 'wb'))
