@@ -31,7 +31,7 @@ class XOR(Experiment):
         population = (nodes,links)
         self.set(population)
 
-        stimuli = [[[0, 0], [1, 0], [0, 1], [1, 1]]]
+        stimuli = np.array([[[0, 0], [1, 0], [0, 1], [1, 1]]])
         self.set(stimuli)
 
         self.responses = np.array([[[0], [1], [1], [0]]])
@@ -41,7 +41,7 @@ class XOR(Experiment):
 
         reactions = organism.react()
 
-        score = 4 - np.abs(reactions - self.responses).flatten().sum()
+        score = 4 - np.abs(reactions - self.responses).sum()
 
         return score
 
@@ -50,14 +50,17 @@ class XOR(Experiment):
 
         max_score = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0].score
 
-        print("Max. Fitness:", "%.2f"%max_score, end="\r", flush=True)
+        print(f"Max. Fitness: {max_score:.2f}", end="\r", flush=True)
 
         return
 
 
 experiment = XOR()
+experiment.initialize()
 experiment.run()
 
 if experiment.MPI_rank == 0:
     organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
-    p.dump(organism.data(), open('./xor_organism.p', 'wb'))
+    p.dump(organism.data(), open('./xor.p', 'wb'))
+
+experiment.finalize()
