@@ -1,8 +1,8 @@
 import neatnik
 
 
-neatnik.Parameters.random_seed = 9781
-neatnik.Parameters.generational_cycles = 150
+neatnik.Parameters.random_seed = 9748581
+neatnik.Parameters.generational_cycles = 100
 neatnik.Parameters.population_size = 100
 neatnik.Parameters.mutation_attempts = 10
 neatnik.Parameters.spawning_attempts = 10

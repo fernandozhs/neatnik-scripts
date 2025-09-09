@@ -11,30 +11,30 @@ import numpy  as np
 import pickle as p
 
 
-class XOR(Experiment):
-    """ Drives the evolution of an 'exclusive or' operator. """
+class AR1(Experiment):
+    """ Drives the evolution of an AR1 process forecaster. """
 
     def __init__(self) -> None:
-        """ Initializes the XOR Experiment. """
+        """ Initializes the AR1 Experiment. """
 
         super().__init__()
 
         nodes = [
-            (0, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 2),
-            (1, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
-            (2, neatnik.ENABLED, neatnik.BIAS,   neatnik.UNITY,    0, 0),
-            (3, neatnik.ENABLED, neatnik.OUTPUT, neatnik.LOGISTIC, 1, 1),
+            (0, neatnik.ENABLED, neatnik.INPUT,  neatnik.IDENTITY, 0, 1),
+            (1, neatnik.ENABLED, neatnik.BIAS,   neatnik.UNITY,    0, 0),
+            (2, neatnik.ENABLED, neatnik.OUTPUT, neatnik.IDENTITY, 1, 1),
             ]
         links = [
-            (None, neatnik.ENABLED, neatnik.BIASING, None, 2, 3),
+            (None, neatnik.ENABLED, neatnik.BIASING, None, 1, 2),
             ]
         population = (nodes,links)
         self.set(population)
 
-        stimuli = np.array([[[0, 0], [1, 0], [0, 1], [1, 1]]])
+        with open('../data.p', 'rb') as file:
+            stimuli = p.load(file)
         self.set(stimuli)
 
-        self.responses = np.array([[[0], [1], [1], [0]]])
+        self.scale = np.abs(self.stimuli).sum()
 
         self.cycle_counter = 1
         self.species_counter = 1
@@ -44,7 +44,8 @@ class XOR(Experiment):
 
         reactions = organism.react()
 
-        score = 4 - np.abs(reactions - self.responses).sum()
+        deviation = np.abs(self.stimuli[:,:-1,:] - reactions[:,1:,:]).sum()
+        score = np.exp(-deviation/self.scale)
 
         return score
 
@@ -53,7 +54,7 @@ class XOR(Experiment):
 
         max_score = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0].score
 
-        print(f"Cycle: {self.cycle_counter}  ∣  Nmbr. Species: {self.species_counter}  ∣  Max. Fitness: {max_score:.2f}", end="\n", flush=True)
+        print(f"Cycle: {self.cycle_counter}  ∣  Nmbr. Species: {self.species_counter}  ∣  Max. Fitness: {max_score:.20f}", end="\n", flush=True)
 
         return
 
@@ -66,12 +67,13 @@ class XOR(Experiment):
         return
 
 
-experiment = XOR()
+experiment = AR1()
 experiment.initialize()
 experiment.run()
 
 if experiment.MPI_rank == 0:
     organism = experiment.genus.species[neatnik.DOMINANT][0].organisms[neatnik.DOMINANT][0];
-    p.dump(organism.data(), open('./xor.p', 'wb'))
+    p.dump(organism.data(), open('./ar1.p', 'wb'))
+    print(organism.data())
 
 experiment.finalize()
